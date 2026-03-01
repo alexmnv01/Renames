@@ -1,11 +1,11 @@
 import java.io.InputStream;
 import java.io.IOException;
-import java.nio.file.DirectoryStream;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
 import java.util.Properties;
+import java.util.stream.Stream;
 
 public class FileInDirsRenamer {
 
@@ -34,8 +34,8 @@ public class FileInDirsRenamer {
         int renamed = 0;
         int skipped = 0;
 
-        try (DirectoryStream<Path> stream = Files.newDirectoryStream(dir)) {
-            for (Path file : stream) {
+        try (Stream<Path> stream = Files.walk(dir)) {
+            for (Path file : (Iterable<Path>) stream::iterator) {
                 if (!Files.isRegularFile(file)) {
                     continue;
                 }
@@ -47,7 +47,7 @@ public class FileInDirsRenamer {
 
                 String newFilename = filename.substring(prefix.length());
                 if (newFilename.isEmpty()) {
-                    System.err.println("Пропуск: имя файла после удаления префикса пустое: " + filename);
+                    System.err.println("Пропуск: имя файла после удаления префикса пустое: " + file);
                     skipped++;
                     continue;
                 }
@@ -55,20 +55,20 @@ public class FileInDirsRenamer {
                 Path target = file.resolveSibling(newFilename);
                 try {
                     Files.move(file, target);
-                    System.out.println("Переименован файл: " + filename + " → " + newFilename);
+                    System.out.println("Переименован файл: " + file + " → " + target);
                     renamed++;
                 } catch (FileAlreadyExistsException e) {
-                    System.err.println("Пропуск: целевой файл уже существует: " + newFilename);
+                    System.err.println("Пропуск: целевой файл уже существует: " + target);
                     skipped++;
                 } catch (IOException e) {
-                    System.err.println("Ошибка при переименовании файла: " + filename + ". Причина: " + e.getMessage());
+                    System.err.println("Ошибка при переименовании файла: " + file + ". Причина: " + e.getMessage());
                     skipped++;
                 }
             }
         }
 
         if (scanned == 0) {
-            System.out.println("Нет файлов для обработки в директории.");
+            System.out.println("Нет файлов для обработки в директории и вложенных каталогах.");
         } else {
             System.out.println("Готово. Переименовано: " + renamed + ", пропущено: " + skipped + ".");
         }
