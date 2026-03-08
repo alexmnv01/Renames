@@ -1,41 +1,72 @@
 # Renames
 
-Этп программа удаляет из названия всех файлов в заданной дирректории префикс.
-Диррекирия и префикс заданы в файле настроек config.properties и называются соотвественно
-- directory
-- prefix
-  Префикс указан в кавычках для того чтобы можно было удалять из названия пробельные символы.
-  Давай улучшим данную программу добавив в нее возможность переименовывать файлы не только в текущей дирректории, но и во всех вложеннных дирректориях по указанному пути.
+### Текущая весия 0.1.2
+Реализовано два режима переименований 
+см. описание `mode`
 
-FileInDirsRenamer - версия прораммы которая выолняем перименование в поддиректиях
+Программа переименовывает файлы в заданной директории. Расширенные режимы работают через `FileInDirsRenamer`.
 
+## Параметры конфига
 
-javac -d bin G:\\Programmers\\rmnames\\FileRenamer.java
-javac -d bin G:/Programmers/rmnames/FileRenamer.java
+- `directory` - путь к директории для обработки.
+- `mode` - режим работы для `FileInDirsRenamer`.
+- `prefix` - префикс для удаления (нужен только для режима удаления префикса).
 
+`prefix` можно указывать в кавычках, чтобы сохранять пробелы и спецсимволы.
 
-javac -d G:\\Prpgrammers\\rmnames\\bin G:\\Prpgrammers\\rmnames\\src\\FileRenamer.java
-java -cp bin FileRenamer
-java -cp G:\\Prpgrammers\\rmnames\\bin FileRenamer
+## Режимы (`mode`) для `FileInDirsRenamer`
 
-Как использовать:
+- `strip-prefix-recursive` - удалить префикс у файлов в директории и всех поддиректориях.
+- `date-ddmmyy-to-yymmdd-recursive` - рекурсивно переименовать файлы, имя которых начинается с даты формата `dd.MM.yy`, в формат `yy.MM.dd`.
 
-- По умолчанию: java FileRenamer
-- С указанием конфига: java FileRenamer --config /path/to/config.properties
+Пример для нового режима даты:
 
+- Было: `19.05.17. Игорь Пыхалов про евросоюз, часть первая.txt`
+- Станет: `17.05.19. Игорь Пыхалов про евросоюз, часть первая.txt`
 
-Работает:
+## Пример `config.properties`
 
-java -cp out FileRenamer --config G:/Programmers/rmnames/config.properties
+### 1) Удаление префикса рекурсивно
 
-directory=G:\\Programmers\\LLM\\for_Images\\RFOLD
-prefix="[SRT]"
+```properties
+directory=G:\\Prpgrammers\\LLM\\for_Images\\RFOLD\\
+mode=strip-prefix-recursive
+prefix="[SW.BAND]"
+```
 
-Запуск:
-Из рабочейй дирректории
-2. javac -d out src/FileRenamer.java
-3. java -cp out FileRenamer --config config.properties
+### 2) Перестановка даты рекурсивно
 
-Запуск из любой дирректории, все файлы находтя в ней
-javac -d out src/FileInDirsRenamer.java
-java FileInDirsRenamer --config config.properties
+```properties
+directory=G:\\Prpgrammers\\LLM\\for_Images\\RFOLD\\
+mode=date-ddmmyy-to-yymmdd-recursive
+prefix=""
+```
+
+## Сборка и запуск
+
+```bash
+javac -d out src/main/java/com/FileInDirsRenamer.java
+java -cp out src.main.java.com.FileInDirsRenamer --config config.properties
+```
+
+Для Windows (с вашим путем проекта) можно собрать и создать `bat`-файл, который запускается из любой директории:
+
+```bat
+cd /d G:\Prpgrammers\myPrj\Renames
+javac -d out G:\Prpgrammers\myPrj\Renames\src\main\java\com\FileInDirsRenamer.java
+```
+
+Содержимое `run-renamer.bat`:
+
+```bat
+@echo off
+java -cp "G:\Prpgrammers\myPrj\Renames\out" src.main.java.com.FileInDirsRenamer --config "%~1"
+```
+
+Пример запуска из любой директории (Windows):
+
+```bat
+G:\Prpgrammers\myPrj\Renames\run-renamer.bat G:\Prpgrammers\myPrj\Renames\config.properties
+```
+
+`FileRenamer` не изменен: это отдельный старый режим удаления префикса только в текущей директории.
