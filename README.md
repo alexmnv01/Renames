@@ -45,4 +45,24 @@ javac -d out src/main/java/com/FileInDirsRenamer.java
 java -cp out src.main.java.com.FileInDirsRenamer --config config.properties
 ```
 
+Для Windows (с вашим путем проекта) можно собрать и создать `bat`-файл, который запускается из любой директории:
+
+```bat
+cd /d G:\Prpgrammers\myPrj\Renames
+javac -d out G:\Prpgrammers\myPrj\Renames\src\main\java\com\FileInDirsRenamer.java
+```
+
+Содержимое `run-renamer.bat`:
+
+```bat
+@echo off
+java -cp "G:\Prpgrammers\myPrj\Renames\out" src.main.java.com.FileInDirsRenamer --config "%~1"
+```
+
+Пример запуска из любой директории (Windows):
+
+```bat
+G:\Prpgrammers\myPrj\Renames\run-renamer.bat G:\Prpgrammers\myPrj\Renames\config.properties
+```
+
 `FileRenamer` не изменен: это отдельный старый режим удаления префикса только в текущей директории.
