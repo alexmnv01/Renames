@@ -2,10 +2,15 @@ package src.main.java.com;
 
 import java.io.IOException;
 import java.io.InputStream;
+import java.nio.charset.StandardCharsets;
 import java.nio.file.FileAlreadyExistsException;
 import java.nio.file.Files;
 import java.nio.file.Path;
 import java.nio.file.Paths;
+import java.time.DateTimeException;
+import java.time.LocalDate;
+import java.util.ArrayList;
+import java.util.List;
 import java.util.Properties;
 import java.util.regex.Matcher;
 import java.util.regex.Pattern;
@@ -14,6 +19,7 @@ import java.util.stream.Stream;
 public class FileInDirsRenamer {
 
     private static final Pattern START_DATE_PATTERN = Pattern.compile("^(\\d{2})\\.(\\d{2})\\.(\\d{2})(\\..*)$");
+    private static final String DATE_RENAME_ERRORS_FILENAME = "date-ddmmyy-to-yymmdd-errors.txt";
 
     private enum Mode {
         STRIP_PREFIX_RECURSIVE,
@@ -99,6 +105,9 @@ public class FileInDirsRenamer {
 
     private static RenameStats renameDateInFilenameRecursively(Path dir) throws IOException {
         RenameStats stats = new RenameStats();
+        List<Path> candidates = new ArrayList<>();
+        List<String> validationErrors = new ArrayList<>();
+
         try (Stream<Path> stream = Files.walk(dir)) {
             for (Path file : (Iterable<Path>) stream::iterator) {
                 if (!Files.isRegularFile(file)) {
@@ -111,18 +120,85 @@ public class FileInDirsRenamer {
                 if (!matcher.matches()) {
                     continue;
                 }
+                candidates.add(file);
 
                 String day = matcher.group(1);
                 String month = matcher.group(2);
                 String year = matcher.group(3);
                 String suffix = matcher.group(4);
-
                 String newFilename = year + "." + month + "." + day + suffix;
-                Path target = file.resolveSibling(newFilename);
-                tryMove(file, target, stats);
+
+                String validationError = validateDateForRename(day, month, year);
+                if (validationError != null) {
+                    validationErrors.add(
+                            "Источник: " + file + System.lineSeparator()
+                                    + "Результат: " + file.resolveSibling(newFilename) + System.lineSeparator()
+                                    + "Причина: " + validationError + System.lineSeparator());
+                }
             }
         }
+
+        if (!validationErrors.isEmpty()) {
+            Path errorsFile = dir.resolve(DATE_RENAME_ERRORS_FILENAME);
+            List<String> lines = new ArrayList<>();
+            lines.add("Найдены ошибки валидации даты. Переименование не выполнено.");
+            lines.add("Количество ошибок: " + validationErrors.size());
+            lines.add("");
+            lines.addAll(validationErrors);
+            Files.write(errorsFile, lines, StandardCharsets.UTF_8);
+            stats.skipped = candidates.size();
+            System.err.println("Найдены ошибки валидации. Переименование отменено.");
+            System.err.println("Файл с ошибками: " + errorsFile.toAbsolutePath());
+            return stats;
+        }
+
+        for (Path file : candidates) {
+            String filename = file.getFileName().toString();
+            Matcher matcher = START_DATE_PATTERN.matcher(filename);
+            if (!matcher.matches()) {
+                // Файл мог измениться с момента сканирования; пропускаем.
+                continue;
+            }
+
+            String day = matcher.group(1);
+            String month = matcher.group(2);
+            String year = matcher.group(3);
+            String suffix = matcher.group(4);
+
+            String newFilename = year + "." + month + "." + day + suffix;
+            Path target = file.resolveSibling(newFilename);
+            tryMove(file, target, stats);
+        }
         return stats;
+    }
+
+    private static String validateDateForRename(String dayRaw, String monthRaw, String yearRaw) {
+        int day = Integer.parseInt(dayRaw);
+        int month = Integer.parseInt(monthRaw);
+        int year = Integer.parseInt(yearRaw);
+
+        if (year < 2) {
+            return "Год меньше 02 (2002).";
+        }
+        if (day > 31) {
+            return "День больше 31.";
+        }
+        if (month > 12) {
+            return "Месяц больше 12.";
+        }
+
+        int fullYear = 2000 + year;
+        LocalDate parsedDate;
+        try {
+            parsedDate = LocalDate.of(fullYear, month, day);
+        } catch (DateTimeException e) {
+            return "Некорректная дата: " + e.getMessage();
+        }
+
+        if (parsedDate.isAfter(LocalDate.now())) {
+            return "Дата больше текущей: " + parsedDate + ".";
+        }
+        return null;
     }
 
     private static void renameByPrefix(Path file, String prefix, RenameStats stats) {
